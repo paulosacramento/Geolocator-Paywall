@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         thinkingConfig: {
           thinkingBudget: 24576,
         },
-      },
+      } as unknown as import('@google/generative-ai').GenerationConfig,
     })
 
     const result = await model.generateContent([
