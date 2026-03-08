@@ -21,7 +21,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
       const src = URL.createObjectURL(file)
       const img = new Image()
       img.onload = () => {
-        const MAX = 1024
+        const MAX = 2048
         let w = img.naturalWidth
         let h = img.naturalHeight
         if (w > MAX || h > MAX) {
@@ -46,7 +46,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
             reader.readAsDataURL(blob)
           },
           'image/jpeg',
-          0.82
+          0.9
         )
       }
       img.src = src
