@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       generationConfig: {
         temperature: 0,
         responseMimeType: 'application/json',
-        mediaResolution: 'high',
+        mediaResolution: 'MEDIA_RESOLUTION_HIGH',
         thinkingConfig: {
           thinkingBudget: 24576,
         },
