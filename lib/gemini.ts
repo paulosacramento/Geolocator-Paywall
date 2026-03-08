@@ -17,7 +17,8 @@ For each cue category (①–⑪ below):
    • 2 ×  **Medium-stable**  (road-paint style, permanent signage, vehicle plates)
    • 1 ×  **Easily changed**  (flags, clothing, movable props)
 After all cues, sum scores by region; keep the three highest-scoring regions for STEP 2.
-*Never reveal this pad or its scores.*
+Also apply penalties for candidates that conflict with hard-to-change cues.
+*Never reveal this pad, its scores, or its penalties.*
 ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 ──────────────────────────────────────────────
 STEP 1 | Systematic Visual Scan (Analysis)
@@ -47,6 +48,21 @@ STEP 2 | Evidence Synthesis (Inference)
 • If two regions are within 5 % of each other, favour the one with more **hard-to-change** cues.
 • Two independent hard-to-change cues corroborating the same region may raise that candidate one confidence level.
 • A single *easily changed* cue **never overrides** contradictory hard-to-change evidence.
+• A candidate with unresolved contradiction in a hard-to-change cue cannot be **Very High** and should rarely be **High**.
+──────────────────────────────────────────────
+STEP 2A | Granularity & Ambiguity Control
+──────────────────────────────────────────────
+• Do not name a **city or town** unless at least one clearly visible cue is **uniquely diagnostic at city level**, such as:
+  – readable place-name text
+  – a unique landmark or skyline object
+  – a route number, institution, or business name tied to one place
+  – a hard-to-change landform or structure strongly associated with that city
+• If no city-specific anchor is visible, output the **broader region/state/province/country** instead.
+• Before finalizing #1, privately test whether the same visible cues could plausibly fit 2–3 other locations in the same country or neighboring region.
+• If several lookalike locations plausibly fit the same cue set, widen the prediction to the broader area and lower confidence by one level.
+• Multiple generic cues from the same family
+  (e.g. Central European architecture, EU-style signage, temperate vegetation, standard road furniture)
+  may support **country or regional identification**, but must not by themselves justify a specific town or city.
 ──────────────────────────────────────────────
 STEP 3 | Confidence Calibration
 ──────────────────────────────────────────────
@@ -58,7 +74,10 @@ Assign **one** label—**Very High, High, Medium, Low, Very Low**—using the gr
 | **Medium**    | Hard-to-change cues ambiguous; medium-stable or easy cues dominate |
 | **Low**       | Only generic cues; no unique alignment |
 | **Very Low**  | Minimal or conflicting evidence |
-Be city-specific only at **High** or **Very High** confidence; otherwise stay broader.
+If the output names a **city or town**, **High** or **Very High** confidence requires at least one **city-specific visible anchor**.
+Without a city-specific anchor, keep the output regional even if country-level confidence is high.
+Be city-specific only when the evidence supports city-level identification.
+Otherwise stay broader.
 ──────────────────────────────────────────────
 OUTPUT FORMAT (STRICT)
 ──────────────────────────────────────────────
@@ -74,11 +93,32 @@ Return **only** this JSON—no extra keys, comments, or surrounding text.
           "2. Dense glass-and-steel skyline",
           "3. Tropical roadside palms"
         ],
-        "summary": "Jazz tower with tropical palms fits Makati's modern CBD skyline."
+        "summary": "Jazz tower and tropical palms match Makati's modern CBD skyline."
       }
     },
-    { "location": "...", "confidence": "...", "clues": { "numbered": [], "summary": "" } },
-    { "location": "...", "confidence": "...", "clues": { "numbered": [], "summary": "" } }
+    {
+      "location": "City or Region, Country",
+      "confidence": "High",
+      "clues": {
+        "numbered": [
+          "1. Example visible cue",
+          "2. Example visible cue",
+          "3. Example visible cue"
+        ],
+        "summary": "Two or more visible cues should be linked to the named location."
+      }
+    },
+    {
+      "location": "City or Region, Country",
+      "confidence": "Medium",
+      "clues": {
+        "numbered": [
+          "1. Example visible cue",
+          "2. Example visible cue"
+        ],
+        "summary": "Use a broader area when city-level evidence is not unique."
+      }
+    }
   ]
 }
 Rules for the **clues** object
@@ -92,7 +132,9 @@ HARD RULES
 3. Mention **only** positive, visible evidence—never absent features.
 4. Weight hard-to-change cues ≥ medium-stable ≥ easy-to-change cues.
 5. Reveal **nothing** from the scratch-pad.
-6. Produce **no** text outside the JSON object.`
+6. Produce **no** text outside the JSON object.
+7. Never name a specific town or city unless at least one visible cue is uniquely diagnostic at city level.
+8. When several same-country locations plausibly fit the same evidence, prefer the broader administrative area over a precise place-name.`
 
 export function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY
