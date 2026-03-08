@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getGeminiClient, SYSTEM_PROMPT } from '@/lib/gemini'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
       generationConfig: {
         temperature: 0,
         responseMimeType: 'application/json',
+        mediaResolution: 'high',
+        thinkingConfig: {
+          thinkingBudget: 24576,
+        },
       },
     })
 
