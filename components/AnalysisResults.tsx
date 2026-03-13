@@ -44,12 +44,19 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
 
   async function handleDownloadPNG() {
     if (!captureRef.current) return
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(captureRef.current, { useCORS: true, scale: 2 })
-    const link = document.createElement('a')
-    link.href = canvas.toDataURL('image/png')
-    link.download = `geolocator-${timestamp()}.png`
-    link.click()
+    try {
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(captureRef.current, {
+        pixelRatio: 2,
+        filter: (node) => !(node as HTMLElement).hasAttribute?.('data-html2canvas-ignore'),
+      })
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = `geolocator-${timestamp()}.png`
+      link.click()
+    } catch {
+      alert('Could not generate image. Try using Print / PDF instead.')
+    }
   }
 
   function handleDownloadJSON() {
