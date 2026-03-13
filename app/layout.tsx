@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import '@moneydevkit/nextjs/mdk-styles.css'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { Header } from '@/components/Header'
 
 export const metadata: Metadata = {
   title: 'GeoLocator — AI Photo Geolocation',
@@ -24,7 +25,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <Header />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

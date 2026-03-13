@@ -2,13 +2,10 @@
 
 import { useState } from 'react'
 import { useCheckout } from '@moneydevkit/nextjs'
-import { Zap, Globe, Lock, ScanSearch } from 'lucide-react'
-import Link from 'next/link'
+import { Zap, Globe, Lock } from 'lucide-react'
 import { PhotoUpload } from '@/components/PhotoUpload'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function HomePage() {
   const { createCheckout, isLoading } = useCheckout()
@@ -71,24 +68,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <ScanSearch className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-base">GeoLocator</span>
-            <Badge variant="outline" className="text-xs hidden sm:inline-flex">AI</Badge>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Zap className="h-3.5 w-3.5 text-amber-500" />
-              <span>100 sats per analysis</span>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
         {/* Hero */}
         <div className="text-center space-y-3">
