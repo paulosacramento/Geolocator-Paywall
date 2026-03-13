@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { MapPin, ImageDown, FileJson, Copy, Check, Printer } from 'lucide-react'
+import { useState } from 'react'
+import { MapPin, FileJson, Copy, Check, Printer } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -34,23 +34,8 @@ const CONFIDENCE_CONFIG: Record<
 
 const RANK_LABELS = ['#1 Most Likely', '#2', '#3']
 
-function timestamp() {
-  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-}
-
 export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProps) {
-  const captureRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
-
-  async function handleDownloadPNG() {
-    if (!captureRef.current) return
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(captureRef.current, { useCORS: true, scale: 2 })
-    const link = document.createElement('a')
-    link.href = canvas.toDataURL('image/png')
-    link.download = `geolocator-${timestamp()}.png`
-    link.click()
-  }
 
   function handleDownloadJSON() {
     const data = {
@@ -67,7 +52,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `geolocator-${timestamp()}.json`
+    link.download = `geolocator-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -91,8 +76,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
 
   return (
     <div className="space-y-6">
-      {/* Capture zone: photo + cards */}
-      <div ref={captureRef} className="space-y-6">
+      <div className="space-y-6">
         {imagePreview && (
           <div className="rounded-xl overflow-hidden border max-h-64 flex items-center justify-center bg-black/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -154,17 +138,12 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
         </div>
       </div>
 
-      {/* Export bar — excluded from PNG capture */}
-      <div data-html2canvas-ignore className="no-print">
+      <div className="no-print">
         <Separator className="mb-4" />
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Save results
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadPNG}>
-            <ImageDown className="h-4 w-4 mr-1.5" />
-            Save as image
-          </Button>
           <Button variant="outline" size="sm" onClick={handleDownloadJSON}>
             <FileJson className="h-4 w-4 mr-1.5" />
             Save as JSON
