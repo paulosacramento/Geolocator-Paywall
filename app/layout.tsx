@@ -15,8 +15,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body className="antialiased min-h-screen flex flex-col">
         {children}
+        <footer className="border-t mt-auto py-4 text-center text-xs text-muted-foreground">
+          <a
+            href="https://github.com/paulosacramento/Geolocator-Paywall"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            View on GitHub
+          </a>
+        </footer>
       </body>
     </html>
   )
