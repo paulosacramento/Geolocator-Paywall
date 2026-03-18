@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCheckoutSuccess } from '@moneydevkit/nextjs'
 import { useRouter } from 'next/navigation'
 import { ScanSearch, Loader2, RefreshCw, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { AnalysisResults, type Location } from '@/components/AnalysisResults'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 
 type PageState =
   | { status: 'verifying' }
@@ -15,11 +16,51 @@ type PageState =
   | { status: 'error'; message: string }
   | { status: 'unpaid' }
 
+type ProgressStage = {
+  upTo: number      // seconds
+  progress: number  // 0-100
+  message: string
+}
+
+const PROGRESS_STAGES: ProgressStage[] = [
+  { upTo: 3,   progress: 5,  message: 'Uploading image…' },
+  { upTo: 10,  progress: 20, message: 'Scanning visual cues…' },
+  { upTo: 20,  progress: 40, message: 'Analyzing architecture & infrastructure…' },
+  { upTo: 35,  progress: 60, message: 'Synthesizing geographic evidence…' },
+  { upTo: 50,  progress: 80, message: 'Calibrating confidence levels…' },
+  { upTo: 60,  progress: 92, message: 'Finalizing results…' },
+  { upTo: Infinity, progress: 95, message: 'This is taking longer than expected…' },
+]
+
+function getStage(elapsed: number): ProgressStage {
+  return PROGRESS_STAGES.find((s) => elapsed < s.upTo) ?? PROGRESS_STAGES[PROGRESS_STAGES.length - 1]
+}
+
 export default function SuccessPage() {
   const { isCheckoutPaidLoading, isCheckoutPaid } = useCheckoutSuccess()
   const router = useRouter()
   const [pageState, setPageState] = useState<PageState>({ status: 'verifying' })
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Start/stop elapsed timer based on analysis state
+  useEffect(() => {
+    if (pageState.status === 'analyzing') {
+      setElapsedSeconds(0)
+      intervalRef.current = setInterval(() => {
+        setElapsedSeconds((s) => s + 1)
+      }, 1000)
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [pageState.status])
 
   useEffect(() => {
     // Wait until payment verification resolves
@@ -66,6 +107,8 @@ export default function SuccessPage() {
       })
   }, [isCheckoutPaidLoading, isCheckoutPaid, hasAnalyzed])
 
+  const currentStage = getStage(elapsedSeconds)
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -89,9 +132,11 @@ export default function SuccessPage() {
         {pageState.status === 'analyzing' && (
           <CenteredMessage>
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-base font-medium">Analyzing your photo…</p>
+            <p className="text-base font-medium">{currentStage.message}</p>
+            <Progress value={currentStage.progress} className="w-64" />
             <p className="text-sm text-muted-foreground">
-              Gemini is scanning for geospatial clues. This can take up to 30 seconds.
+              {elapsedSeconds}s elapsed
+              {elapsedSeconds < 60 && ' · up to 60 seconds'}
             </p>
           </CenteredMessage>
         )}
@@ -128,6 +173,7 @@ export default function SuccessPage() {
                 size="sm"
                 onClick={() => {
                   setHasAnalyzed(false)
+                  setElapsedSeconds(0)
                   setPageState({ status: 'verifying' })
                 }}
               >
