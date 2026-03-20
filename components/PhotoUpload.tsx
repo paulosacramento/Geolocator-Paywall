@@ -109,29 +109,40 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
 
     setUrlLoading(true)
     try {
-      const response = await fetch(trimmed, { cache: 'no-cache' })
-      if (!response.ok) {
-        setUrlError({ body: `Couldn't fetch the image (HTTP ${response.status}). Check the URL and try again.` })
-        return
+      let blob: Blob
+
+      // Try direct fetch first (works when the host allows CORS)
+      try {
+        const response = await fetch(trimmed, { cache: 'no-cache' })
+        if (!response.ok) {
+          setUrlError({ body: `Couldn't fetch the image (HTTP ${response.status}). Check the URL and try again.` })
+          return
+        }
+        const contentType = response.headers.get('content-type') ?? ''
+        if (!contentType.startsWith('image/')) {
+          setUrlError({ body: "The URL doesn't point to an image file." })
+          return
+        }
+        blob = await response.blob()
+      } catch (directErr) {
+        if (!(directErr instanceof TypeError)) throw directErr
+        // CORS blocked — silently retry via server-side proxy
+        const proxyRes = await fetch(`/api/proxy-image?url=${encodeURIComponent(trimmed)}`, { cache: 'no-cache' })
+        if (!proxyRes.ok) {
+          if (proxyRes.status === 415) {
+            setUrlError({ body: "The URL doesn't point to an image file." })
+          } else {
+            setUrlError({ body: `Couldn't fetch the image (HTTP ${proxyRes.status}). Check the URL and try again.` })
+          }
+          return
+        }
+        blob = await proxyRes.blob()
       }
-      const contentType = response.headers.get('content-type') ?? ''
-      if (!contentType.startsWith('image/')) {
-        setUrlError({ body: "The URL doesn't point to an image file." })
-        return
-      }
-      const blob = await response.blob()
+
       const { base64, mimeType, previewUrl } = await processImageBlob(blob)
       onImageReady(base64, mimeType, previewUrl)
-    } catch (err) {
-      if (err instanceof TypeError) {
-        // Network/CORS errors surface as TypeError in fetch
-        setUrlError({
-          title: 'Image blocked by host',
-          body: "This image can't be loaded directly from your browser due to the host's security policy. Try downloading the image and uploading it instead.",
-        })
-      } else {
-        setUrlError({ title: 'Something went wrong', body: 'Failed to load the image. Please try again.' })
-      }
+    } catch {
+      setUrlError({ title: 'Something went wrong', body: 'Failed to load the image. Please try again.' })
     } finally {
       setUrlLoading(false)
     }
