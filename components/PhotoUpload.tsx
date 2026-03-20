@@ -253,7 +253,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
               placeholder="https://example.com/photo.jpg"
               disabled={urlLoading}
               className={cn(
-                'flex-1 rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50',
+                'flex-1 rounded-md border bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50',
                 urlError ? 'border-destructive' : 'border-input'
               )}
             />
