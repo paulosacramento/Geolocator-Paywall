@@ -57,7 +57,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
   const [dragging, setDragging] = useState(false)
   const [tab, setTab] = useState<Tab>('file')
   const [urlInput, setUrlInput] = useState('')
-  const [urlError, setUrlError] = useState<string | null>(null)
+  const [urlError, setUrlError] = useState<{ title?: string; body: string } | null>(null)
   const [urlLoading, setUrlLoading] = useState(false)
 
   const processFile = useCallback(
@@ -99,11 +99,11 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
     try {
       const parsed = new URL(trimmed)
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        setUrlError('Please enter an http:// or https:// image URL.')
+        setUrlError({ body: 'Please enter an http:// or https:// image URL.' })
         return
       }
     } catch {
-      setUrlError('Please enter a valid image URL.')
+      setUrlError({ body: 'Please enter a valid image URL.' })
       return
     }
 
@@ -111,12 +111,12 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
     try {
       const response = await fetch(trimmed, { cache: 'no-cache' })
       if (!response.ok) {
-        setUrlError(`Couldn't fetch the image (HTTP ${response.status}). Check the URL and try again.`)
+        setUrlError({ body: `Couldn't fetch the image (HTTP ${response.status}). Check the URL and try again.` })
         return
       }
       const contentType = response.headers.get('content-type') ?? ''
       if (!contentType.startsWith('image/')) {
-        setUrlError("The URL doesn't point to an image file.")
+        setUrlError({ body: "The URL doesn't point to an image file." })
         return
       }
       const blob = await response.blob()
@@ -125,9 +125,12 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
     } catch (err) {
       if (err instanceof TypeError) {
         // Network/CORS errors surface as TypeError in fetch
-        setUrlError("This image can't be loaded directly from your browser due to the host's security policy. Try downloading the image and uploading it instead.")
+        setUrlError({
+          title: 'Image blocked by host',
+          body: "This image can't be loaded directly from your browser due to the host's security policy. Try downloading the image and uploading it instead.",
+        })
       } else {
-        setUrlError('Something went wrong loading the image. Please try again.')
+        setUrlError({ title: 'Something went wrong', body: 'Failed to load the image. Please try again.' })
       }
     } finally {
       setUrlLoading(false)
@@ -270,7 +273,10 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
             </Button>
           </div>
           {urlError && (
-            <p className="text-sm text-destructive">{urlError}</p>
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+              {urlError.title && <p className="font-medium mb-1">{urlError.title}</p>}
+              <p>{urlError.body}</p>
+            </div>
           )}
           <Badge variant="secondary" className="font-normal text-muted-foreground self-center">
             Best results with outdoor photos showing buildings, street signs, landscapes, or infrastructure.
