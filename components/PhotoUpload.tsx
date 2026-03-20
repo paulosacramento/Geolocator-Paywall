@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Upload, ImageIcon, X } from 'lucide-react'
+import { Upload, ImageIcon, X, Link, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -13,44 +13,58 @@ interface PhotoUploadProps {
   disabled?: boolean
 }
 
+type Tab = 'file' | 'url'
+
+async function processImageBlob(blob: Blob): Promise<{ base64: string; mimeType: string; previewUrl: string }> {
+  const src = URL.createObjectURL(blob)
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 1024
+      let w = img.naturalWidth
+      let h = img.naturalHeight
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round((h * MAX) / w); w = MAX }
+        else       { w = Math.round((w * MAX) / h); h = MAX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(src)
+      canvas.toBlob(
+        (compressed) => {
+          if (!compressed) { reject(new Error('Canvas toBlob failed')); return }
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const dataUrl = e.target?.result as string
+            const [meta, base64] = dataUrl.split(',')
+            const mimeType = meta.replace('data:', '').replace(';base64', '')
+            resolve({ base64, mimeType, previewUrl: dataUrl })
+          }
+          reader.readAsDataURL(compressed)
+        },
+        'image/jpeg',
+        0.82
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(src); reject(new Error('Image failed to load')) }
+    img.src = src
+  })
+}
+
 export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoUploadProps) {
   const [dragging, setDragging] = useState(false)
+  const [tab, setTab] = useState<Tab>('file')
+  const [urlInput, setUrlInput] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
+  const [urlLoading, setUrlLoading] = useState(false)
 
   const processFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith('image/')) return
-      const src = URL.createObjectURL(file)
-      const img = new Image()
-      img.onload = () => {
-        const MAX = 1024
-        let w = img.naturalWidth
-        let h = img.naturalHeight
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round((h * MAX) / w); w = MAX }
-          else       { w = Math.round((w * MAX) / h); h = MAX }
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-        URL.revokeObjectURL(src)
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              const dataUrl = e.target?.result as string
-              const [meta, base64] = dataUrl.split(',')
-              const mimeType = meta.replace('data:', '').replace(';base64', '')
-              onImageReady(base64, mimeType, dataUrl)
-            }
-            reader.readAsDataURL(blob)
-          },
-          'image/jpeg',
-          0.82
-        )
-      }
-      img.src = src
+      const { base64, mimeType, previewUrl } = await processImageBlob(file)
+      onImageReady(base64, mimeType, previewUrl)
     },
     [onImageReady]
   )
@@ -68,6 +82,56 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) processFile(file)
+  }
+
+  const switchTab = (next: Tab) => {
+    setTab(next)
+    setUrlInput('')
+    setUrlError(null)
+    onClear()
+  }
+
+  const loadFromUrl = async () => {
+    setUrlError(null)
+    const trimmed = urlInput.trim()
+
+    // Validate URL format
+    try {
+      const parsed = new URL(trimmed)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setUrlError('Please enter an http:// or https:// image URL.')
+        return
+      }
+    } catch {
+      setUrlError('Please enter a valid image URL.')
+      return
+    }
+
+    setUrlLoading(true)
+    try {
+      const response = await fetch(trimmed, { cache: 'no-cache' })
+      if (!response.ok) {
+        setUrlError(`Couldn't fetch the image (HTTP ${response.status}). Check the URL and try again.`)
+        return
+      }
+      const contentType = response.headers.get('content-type') ?? ''
+      if (!contentType.startsWith('image/')) {
+        setUrlError("The URL doesn't point to an image file.")
+        return
+      }
+      const blob = await response.blob()
+      const { base64, mimeType, previewUrl } = await processImageBlob(blob)
+      onImageReady(base64, mimeType, previewUrl)
+    } catch (err) {
+      if (err instanceof TypeError) {
+        // Network/CORS errors surface as TypeError in fetch
+        setUrlError("This image can't be loaded directly from your browser due to the host's security policy. Try downloading the image and uploading it instead.")
+      } else {
+        setUrlError('Something went wrong loading the image. Please try again.')
+      }
+    } finally {
+      setUrlLoading(false)
+    }
   }
 
   if (preview) {
@@ -93,46 +157,126 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
   }
 
   return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-      className={cn(
-        'relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer',
-        dragging
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-primary/50 hover:bg-muted/30'
+    <div className="flex flex-col gap-3">
+      {/* Tab toggle */}
+      <div className="flex rounded-lg border bg-muted/30 p-1 gap-1">
+        <button
+          type="button"
+          onClick={() => switchTab('file')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            tab === 'file'
+              ? 'bg-background shadow text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Upload className="h-4 w-4" />
+          Upload file
+        </button>
+        <button
+          type="button"
+          onClick={() => switchTab('url')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            tab === 'url'
+              ? 'bg-background shadow text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Link className="h-4 w-4" />
+          Enter URL
+        </button>
+      </div>
+
+      {tab === 'file' ? (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={cn(
+            'relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer',
+            dragging
+              ? 'border-primary bg-primary/5'
+              : 'border-border hover:border-primary/50 hover:bg-muted/30'
+          )}
+          onClick={() => document.getElementById('photo-input')?.click()}
+        >
+          <input
+            id="photo-input"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            {dragging ? (
+              <ImageIcon className="h-8 w-8 text-primary" />
+            ) : (
+              <Upload className="h-8 w-8 text-muted-foreground" />
+            )}
+          </div>
+          <div>
+            <p className="text-base font-medium">
+              {dragging ? 'Drop your photo here' : 'Upload a photo'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Drag & drop or click to browse · JPG, PNG, WEBP
+            </p>
+          </div>
+          <Button variant="outline" size="sm" type="button" tabIndex={-1}>
+            Choose file
+          </Button>
+          <Badge variant="secondary" className="font-normal text-muted-foreground">
+            Best results with outdoor photos showing buildings, street signs, landscapes, or infrastructure.
+          </Badge>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-border p-8">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto">
+            <Link className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-medium">Enter an image URL</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Paste a direct link to a publicly accessible image
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => { setUrlInput(e.target.value); setUrlError(null) }}
+              onKeyDown={(e) => e.key === 'Enter' && !urlLoading && loadFromUrl()}
+              placeholder="https://example.com/photo.jpg"
+              disabled={urlLoading}
+              className={cn(
+                'flex-1 rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50',
+                urlError ? 'border-destructive' : 'border-input'
+              )}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadFromUrl}
+              disabled={urlLoading || !urlInput.trim()}
+              className="shrink-0"
+            >
+              {urlLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Load image'
+              )}
+            </Button>
+          </div>
+          {urlError && (
+            <p className="text-sm text-destructive">{urlError}</p>
+          )}
+          <Badge variant="secondary" className="font-normal text-muted-foreground self-center">
+            Best results with outdoor photos showing buildings, street signs, landscapes, or infrastructure.
+          </Badge>
+        </div>
       )}
-      onClick={() => document.getElementById('photo-input')?.click()}
-    >
-      <input
-        id="photo-input"
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        {dragging ? (
-          <ImageIcon className="h-8 w-8 text-primary" />
-        ) : (
-          <Upload className="h-8 w-8 text-muted-foreground" />
-        )}
-      </div>
-      <div>
-        <p className="text-base font-medium">
-          {dragging ? 'Drop your photo here' : 'Upload a photo'}
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Drag & drop or click to browse · JPG, PNG, WEBP
-        </p>
-      </div>
-      <Button variant="outline" size="sm" type="button" tabIndex={-1}>
-        Choose file
-      </Button>
-      <Badge variant="secondary" className="font-normal text-muted-foreground">
-        Best results with outdoor photos showing buildings, street signs, landscapes, or infrastructure.
-      </Badge>
     </div>
   )
 }
