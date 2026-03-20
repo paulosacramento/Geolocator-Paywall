@@ -273,7 +273,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
             </Button>
           </div>
           {urlError && (
-            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive text-center">
               {urlError.title && <p className="font-medium mb-1">{urlError.title}</p>}
               <p>{urlError.body}</p>
             </div>
