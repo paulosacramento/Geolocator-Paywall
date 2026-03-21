@@ -94,16 +94,25 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       className={cn(
-        'relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer',
+        'relative flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 text-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         dragging
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50 hover:bg-muted/30'
       )}
-      onClick={() => document.getElementById('photo-input')?.click()}
+      onClick={() => { if (!disabled) document.getElementById('photo-input')?.click() }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+          e.preventDefault()
+          document.getElementById('photo-input')?.click()
+        }
+      }}
+      aria-disabled={disabled}
     >
       <input
         id="photo-input"
@@ -127,7 +136,7 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
           Drag & drop or click to browse · JPG, PNG, WEBP
         </p>
       </div>
-      <Button variant="outline" size="sm" type="button" tabIndex={-1}>
+      <Button variant="outline" size="sm" type="button" tabIndex={-1} aria-hidden="true">
         Choose file
       </Button>
       <Badge variant="secondary" className="font-normal text-muted-foreground">
