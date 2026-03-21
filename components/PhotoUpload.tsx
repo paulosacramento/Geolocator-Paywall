@@ -105,13 +105,14 @@ export function PhotoUpload({ onImageReady, onClear, preview, disabled }: PhotoU
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50 hover:bg-muted/30'
       )}
-      onClick={() => document.getElementById('photo-input')?.click()}
+      onClick={() => { if (!disabled) document.getElementById('photo-input')?.click() }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
           e.preventDefault()
           document.getElementById('photo-input')?.click()
         }
       }}
+      aria-disabled={disabled}
     >
       <input
         id="photo-input"
