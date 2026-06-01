@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@moneydevkit/nextjs": "^0.14.0",
+    "@moneydevkit/nextjs": "^0.18.0",
     "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-separator": "^1.1.8",
     "class-variance-authority": "^0.7.1",

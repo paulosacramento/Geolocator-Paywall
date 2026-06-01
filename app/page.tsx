@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { PENDING_CHECKOUT_ID_KEY } from '@/lib/mdk-checkout'
 
 export default function HomePage() {
   const { createCheckout, isLoading } = useCheckout()
@@ -64,6 +65,11 @@ export default function HomePage() {
       sessionStorage.removeItem('pending_mime_type')
       setError(result.error.message)
       return
+    }
+
+    const checkoutId = result.data.checkoutUrl.split('/').filter(Boolean).pop()
+    if (checkoutId) {
+      sessionStorage.setItem(PENDING_CHECKOUT_ID_KEY, checkoutId)
     }
 
     window.location.href = result.data.checkoutUrl
