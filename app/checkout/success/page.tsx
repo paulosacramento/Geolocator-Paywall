@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useCheckoutSuccess } from '@moneydevkit/nextjs'
 import { useRouter } from 'next/navigation'
 import { ScanSearch, Loader2, RefreshCw, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { AnalysisResults, type Location } from '@/components/AnalysisResults'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { usePaymentVerification } from '@/lib/use-payment-verification'
 
 type PageState =
   | { status: 'verifying' }
@@ -15,6 +15,7 @@ type PageState =
   | { status: 'done'; locations: Location[]; preview: string | null }
   | { status: 'error'; message: string }
   | { status: 'unpaid' }
+  | { status: 'missing_checkout' }
 
 type ProgressStage = {
   upTo: number      // seconds
@@ -37,7 +38,7 @@ function getStage(elapsed: number): ProgressStage {
 }
 
 export default function SuccessPage() {
-  const { isCheckoutPaidLoading, isCheckoutPaid } = useCheckoutSuccess()
+  const payment = usePaymentVerification()
   const router = useRouter()
   const [pageState, setPageState] = useState<PageState>({ status: 'verifying' })
   const [hasAnalyzed, setHasAnalyzed] = useState(false)
@@ -63,13 +64,22 @@ export default function SuccessPage() {
   }, [pageState.status])
 
   useEffect(() => {
-    // Wait until payment verification resolves
-    if (isCheckoutPaidLoading || isCheckoutPaid === null) return
+    if (payment.status === 'loading') {
+      setPageState({ status: 'verifying' })
+      return
+    }
 
-    if (!isCheckoutPaid) {
+    if (payment.status === 'missing_checkout') {
+      setPageState({ status: 'missing_checkout' })
+      return
+    }
+
+    if (payment.status === 'unpaid') {
       setPageState({ status: 'unpaid' })
       return
     }
+
+    if (payment.status !== 'paid') return
 
     // Payment confirmed — run analysis once
     if (hasAnalyzed) return
@@ -97,7 +107,6 @@ export default function SuccessPage() {
         return data
       })
       .then((data) => {
-        // Clear image from sessionStorage after successful analysis
         sessionStorage.removeItem('pending_image')
         sessionStorage.removeItem('pending_mime_type')
         setPageState({ status: 'done', locations: data.locations, preview })
@@ -105,7 +114,7 @@ export default function SuccessPage() {
       .catch((err: Error) => {
         setPageState({ status: 'error', message: err.message })
       })
-  }, [isCheckoutPaidLoading, isCheckoutPaid, hasAnalyzed])
+  }, [payment.status, hasAnalyzed])
 
   const currentStage = getStage(elapsedSeconds)
 
@@ -126,6 +135,9 @@ export default function SuccessPage() {
           <CenteredMessage>
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-base font-medium">Verifying payment…</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Lightning payments can take up to a minute to confirm on the network.
+            </p>
           </CenteredMessage>
         )}
 
@@ -175,6 +187,7 @@ export default function SuccessPage() {
                   setHasAnalyzed(false)
                   setElapsedSeconds(0)
                   setPageState({ status: 'verifying' })
+                  payment.retry()
                 }}
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
@@ -186,9 +199,41 @@ export default function SuccessPage() {
 
         {pageState.status === 'unpaid' && (
           <CenteredMessage>
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-6 py-4 text-sm text-amber-800 text-center max-w-sm">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-6 py-4 text-sm text-amber-800 text-center max-w-sm dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200">
               <p className="font-medium mb-1">Payment not confirmed</p>
-              <p>If you completed the payment, please wait a moment and retry.</p>
+              <p>
+                If you already paid, wait a moment and tap Retry — confirmation can take up to
+                a minute while the Lightning payment settles.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" size="sm" onClick={() => router.push('/')}>
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Go back
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setHasAnalyzed(false)
+                  setPageState({ status: 'verifying' })
+                  payment.retry()
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Retry
+              </Button>
+            </div>
+          </CenteredMessage>
+        )}
+
+        {pageState.status === 'missing_checkout' && (
+          <CenteredMessage>
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-6 py-4 text-sm text-amber-800 text-center max-w-sm dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-200">
+              <p className="font-medium mb-1">Checkout session not found</p>
+              <p>
+                Return to the home page, upload your photo, and complete payment from the
+                checkout screen.
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => router.push('/')}>
               <ArrowLeft className="h-4 w-4 mr-1" />
