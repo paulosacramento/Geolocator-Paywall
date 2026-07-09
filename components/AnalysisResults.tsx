@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { MapPin, ImageDown, FileJson, Copy, Check, Printer } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
@@ -23,33 +23,189 @@ interface AnalysisResultsProps {
 
 const CONFIDENCE_CONFIG: Record<
   Location['confidence'],
-  { variant: BadgeProps['variant']; label: string; bar: string }
+  { variant: BadgeProps['variant']; label: string; bar: string; color: string; width: string }
 > = {
-  'Very High': { variant: 'success', label: 'Very High', bar: 'w-full bg-emerald-500' },
-  'High':      { variant: 'info',    label: 'High',      bar: 'w-4/5 bg-blue-500' },
-  'Medium':    { variant: 'warning', label: 'Medium',    bar: 'w-3/5 bg-amber-500' },
-  'Low':       { variant: 'danger',  label: 'Low',       bar: 'w-2/5 bg-orange-500' },
-  'Very Low':  { variant: 'muted',   label: 'Very Low',  bar: 'w-1/5 bg-red-500' },
+  'Very High': { variant: 'success', label: 'Very High', bar: 'w-full bg-emerald-500', color: '#10b981', width: '100%' },
+  'High':      { variant: 'info',    label: 'High',      bar: 'w-4/5 bg-blue-500',     color: '#3b82f6', width: '80%' },
+  'Medium':    { variant: 'warning', label: 'Medium',    bar: 'w-3/5 bg-amber-500',    color: '#f59e0b', width: '60%' },
+  'Low':       { variant: 'danger',  label: 'Low',       bar: 'w-2/5 bg-orange-500',   color: '#f97316', width: '40%' },
+  'Very Low':  { variant: 'muted',   label: 'Very Low',  bar: 'w-1/5 bg-red-500',      color: '#ef4444', width: '20%' },
 }
 
 const RANK_LABELS = ['#1 Most Likely', '#2', '#3']
+
+const EXPORT_STYLES: Record<string, CSSProperties> = {
+  root: {
+    width: 720,
+    boxSizing: 'border-box',
+    background: '#ffffff',
+    color: '#111827',
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    padding: 32,
+  },
+  photoFrame: {
+    width: '100%',
+    maxHeight: 280,
+    marginBottom: 28,
+    border: '1px solid #e5e7eb',
+    borderRadius: 16,
+    overflow: 'hidden',
+    background: '#f3f4f6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photo: {
+    maxWidth: '100%',
+    maxHeight: 280,
+    objectFit: 'contain',
+    display: 'block',
+  },
+  heading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    margin: '0 0 18px',
+    fontSize: 22,
+    lineHeight: 1.2,
+    fontWeight: 700,
+  },
+  card: {
+    border: '1px solid #e5e7eb',
+    borderRadius: 16,
+    boxShadow: '0 1px 3px rgba(17, 24, 39, 0.1)',
+    marginBottom: 16,
+    overflow: 'hidden',
+    background: '#ffffff',
+  },
+  topCard: {
+    borderColor: '#d1d5db',
+    boxShadow: '0 0 0 2px rgba(17, 24, 39, 0.12), 0 1px 3px rgba(17, 24, 39, 0.1)',
+  },
+  cardHeader: {
+    padding: '20px 24px 16px',
+  },
+  cardTitleRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  rank: {
+    margin: '0 0 6px',
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+  },
+  location: {
+    margin: 0,
+    color: '#111827',
+    fontSize: 18,
+    lineHeight: 1.25,
+    fontWeight: 700,
+  },
+  badge: {
+    borderRadius: 6,
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1,
+    padding: '7px 10px',
+    whiteSpace: 'nowrap',
+  },
+  barTrack: {
+    height: 6,
+    width: '100%',
+    borderRadius: 999,
+    background: '#f3f4f6',
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  cardContent: {
+    borderTop: '1px solid #e5e7eb',
+    padding: '18px 24px 22px',
+  },
+  clueList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+  },
+  clue: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 8,
+    color: '#374151',
+    fontSize: 14,
+    lineHeight: 1.45,
+  },
+  bullet: {
+    color: '#6b7280',
+  },
+  summary: {
+    margin: '14px 0 0',
+    borderLeft: '2px solid rgba(17, 24, 39, 0.25)',
+    paddingLeft: 12,
+    color: '#6b7280',
+    fontSize: 14,
+    fontStyle: 'italic',
+    lineHeight: 1.45,
+  },
+}
 
 function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 }
 
+async function waitForImages(element: HTMLElement) {
+  const images = Array.from(element.querySelectorAll('img'))
+  await Promise.all(
+    images.map(async (image) => {
+      if (!image.complete) {
+        await new Promise<void>((resolve, reject) => {
+          image.addEventListener('load', () => resolve(), { once: true })
+          image.addEventListener('error', () => reject(new Error('Unable to load image for export')), { once: true })
+        })
+      }
+
+      if (image.decode && image.naturalWidth > 0) {
+        await image.decode().catch(() => undefined)
+      }
+    })
+  )
+}
+
 export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProps) {
-  const captureRef = useRef<HTMLDivElement>(null)
+  const exportRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
 
   async function handleDownloadPNG() {
-    if (!captureRef.current) return
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(captureRef.current, { useCORS: true, scale: 2 })
-    const link = document.createElement('a')
-    link.href = canvas.toDataURL('image/png')
-    link.download = `geolocator-${timestamp()}.png`
-    link.click()
+    if (!exportRef.current) return
+
+    try {
+      await waitForImages(exportRef.current)
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#ffffff',
+        logging: false,
+        scale: 2,
+        useCORS: true,
+      })
+      const link = document.createElement('a')
+      link.href = canvas.toDataURL('image/png')
+      link.download = `geolocator-${timestamp()}.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (error) {
+      console.error('Failed to save results as an image', error)
+      window.alert('Sorry, the image export failed. Please try Print / PDF instead.')
+    }
   }
 
   function handleDownloadJSON() {
@@ -92,7 +248,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
   return (
     <div className="space-y-6">
       {/* Capture zone: photo + cards */}
-      <div ref={captureRef} className="space-y-6">
+      <div className="space-y-6">
         {imagePreview && (
           <div className="rounded-xl overflow-hidden border max-h-64 flex items-center justify-center bg-black/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -148,6 +304,79 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
                     )}
                   </CardContent>
                 </Card>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Plain export snapshot: avoids html2canvas parsing Tailwind v4 color functions. */}
+      <div
+        aria-hidden="true"
+        style={{ position: 'fixed', left: -10000, top: 0, pointerEvents: 'none' }}
+      >
+        <div ref={exportRef} style={EXPORT_STYLES.root}>
+          {imagePreview && (
+            <div style={EXPORT_STYLES.photoFrame}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="" style={EXPORT_STYLES.photo} />
+            </div>
+          )}
+
+          <h2 style={EXPORT_STYLES.heading}>
+            <MapPin size={22} color="#111827" />
+            Location Analysis
+          </h2>
+
+          <div>
+            {locations.map((loc, i) => {
+              const conf = CONFIDENCE_CONFIG[loc.confidence] ?? CONFIDENCE_CONFIG['Very Low']
+              return (
+                <div
+                  key={i}
+                  style={{
+                    ...EXPORT_STYLES.card,
+                    ...(i === 0 ? EXPORT_STYLES.topCard : undefined),
+                  }}
+                >
+                  <div style={EXPORT_STYLES.cardHeader}>
+                    <div style={EXPORT_STYLES.cardTitleRow}>
+                      <div>
+                        <p style={EXPORT_STYLES.rank}>{RANK_LABELS[i]}</p>
+                        <p style={EXPORT_STYLES.location}>{loc.location}</p>
+                      </div>
+                      <span style={{ ...EXPORT_STYLES.badge, background: conf.color }}>
+                        {conf.label}
+                      </span>
+                    </div>
+
+                    <div style={EXPORT_STYLES.barTrack}>
+                      <div
+                        style={{
+                          ...EXPORT_STYLES.barFill,
+                          width: conf.width,
+                          background: conf.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={EXPORT_STYLES.cardContent}>
+                    <ul style={EXPORT_STYLES.clueList}>
+                      {loc.clues.numbered.map((clue, j) => (
+                        <li key={j} style={EXPORT_STYLES.clue}>
+                          <span style={EXPORT_STYLES.bullet}>•</span>
+                          <span>{clue.replace(/^\d+\.\s*/, '')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {loc.clues.summary && (
+                      <p style={EXPORT_STYLES.summary}>
+                        {loc.clues.summary}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )
             })}
           </div>
