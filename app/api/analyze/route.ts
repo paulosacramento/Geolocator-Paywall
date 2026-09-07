@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGeminiClient, SYSTEM_PROMPT } from '@/lib/gemini'
+import { analyzeImage } from '@/lib/analyze-image'
+import { PRODUCTION_MODEL } from '@/lib/compare-preview'
 
 export const maxDuration = 60
 
@@ -11,29 +12,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing image or mimeType' }, { status: 400 })
     }
 
-    const genAI = getGeminiClient()
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite-preview',
-      systemInstruction: SYSTEM_PROMPT,
-    })
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: image,
-          mimeType,
-        },
-      },
-      'Analyze this photograph and return the JSON as instructed.',
-    ])
-
-    const text = result.response.text().trim()
-
-    // Strip markdown code fences if present
-    const clean = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-    const parsed = JSON.parse(clean)
-
-    return NextResponse.json(parsed)
+    const result = await analyzeImage(image, mimeType, PRODUCTION_MODEL)
+    return NextResponse.json({ locations: result.locations })
   } catch (err: unknown) {
     console.error('[analyze]', err)
     const message = err instanceof Error ? err.message : 'Analysis failed'
