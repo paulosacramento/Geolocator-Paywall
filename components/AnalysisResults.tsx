@@ -19,6 +19,9 @@ export interface Location {
 interface AnalysisResultsProps {
   locations: Location[]
   imagePreview: string | null
+  showImage?: boolean
+  showExport?: boolean
+  compact?: boolean
 }
 
 const CONFIDENCE_CONFIG: Record<
@@ -38,7 +41,13 @@ function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 }
 
-export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProps) {
+export function AnalysisResults({
+  locations,
+  imagePreview,
+  showImage = true,
+  showExport = true,
+  compact = false,
+}: AnalysisResultsProps) {
   const captureRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
 
@@ -93,7 +102,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
     <div className="space-y-6">
       {/* Capture zone: photo + cards */}
       <div ref={captureRef} className="space-y-6">
-        {imagePreview && (
+        {showImage && imagePreview && (
           <div className="rounded-xl overflow-hidden border max-h-64 flex items-center justify-center bg-black/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imagePreview} alt="Analyzed photo" className="max-h-64 object-contain" />
@@ -101,12 +110,14 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
         )}
 
         <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
-            <MapPin className="h-5 w-5 text-primary" />
-            Location Analysis
-          </h2>
+          {!compact && (
+            <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
+              <MapPin className="h-5 w-5 text-primary" />
+              Location Analysis
+            </h2>
+          )}
 
-          <div className="grid gap-4">
+          <div className={compact ? 'grid gap-3' : 'grid gap-4'}>
             {locations.map((loc, i) => {
               const conf = CONFIDENCE_CONFIG[loc.confidence] ?? CONFIDENCE_CONFIG['Very Low']
               return (
@@ -117,7 +128,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                           {RANK_LABELS[i]}
                         </p>
-                        <CardTitle className="text-lg">{loc.location}</CardTitle>
+                        <CardTitle className={compact ? 'text-base' : 'text-lg'}>{loc.location}</CardTitle>
                       </div>
                       <Badge variant={conf.variant} className="shrink-0 mt-1">
                         {conf.label}
@@ -155,7 +166,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
       </div>
 
       {/* Export bar — excluded from PNG capture */}
-      <div data-html2canvas-ignore className="no-print">
+      {showExport && <div data-html2canvas-ignore className="no-print">
         <Separator className="mb-4" />
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Save results
@@ -182,7 +193,7 @@ export function AnalysisResults({ locations, imagePreview }: AnalysisResultsProp
             Print / PDF
           </Button>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
